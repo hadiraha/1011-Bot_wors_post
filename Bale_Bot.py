@@ -147,19 +147,19 @@ class BaleBot:
     #         except Exception as e:
     #             print(f"Error sending message: {e}")
 # Test
-if __name__ == "__main__":
-    async def main():
-        bale_bot = BaleBot()
-        test_image_path = r"extracted_images\image_1.png"  # Replace with a valid image path
-        messages = [
-            {"text": "Test Message 1 - Text Only"},
-            {"text": "Test Message 2 - With Image", "photo": test_image_path if os.path.exists(test_image_path) else None},
-            {"text": "Test Message 3 - Text Only"},
-        ]
-        try:
-            await bale_bot.send_batch_messages(messages)
-            print("All messages sent successfully to Bale.")
-        except Exception as e:
-            print(f"An error occurred while sending messages to Bale: {e}")
+# if __name__ == "__main__":
+#     async def main():
+#         bale_bot = BaleBot()
+#         test_image_path = r"extracted_images\image_1.png"  # Replace with a valid image path
+#         messages = [
+#             {"text": "Test Message 1 - Text Only"},
+#             {"text": "Test Message 2 - With Image", "photo": test_image_path if os.path.exists(test_image_path) else None},
+#             {"text": "Test Message 3 - Text Only"},
+#         ]
+#         try:
+#             await bale_bot.send_batch_messages(messages)
+#             print("All messages sent successfully to Bale.")
+#         except Exception as e:
+#             print(f"An error occurred while sending messages to Bale: {e}")
 
-    asyncio.run(main())
+#     asyncio.run(main())

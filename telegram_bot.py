@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 import re
 
+load_dotenv()
+
 class TelegramBot:
     MAX_CAPTION_LENGTH = 1024  # Telegram's caption character limit
 

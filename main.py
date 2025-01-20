@@ -4,6 +4,48 @@ from telegram_bot import TelegramBot
 from Bale_Bot import BaleBot
 import os
 
+async def send_to_telegram(content_with_images):
+    print("Sending content and images to Telegram...")
+    try:
+        bot = TelegramBot()
+        for section in content_with_images:
+            await bot.send_message_with_images(section['text'], section['images'])
+        print("All content and images sent successfully to Telegram!")
+    except Exception as e:
+        print(f"Error sending messages to Telegram: {e}")
+
+
+async def send_to_bale(content_with_images):
+    print("Sending content and images to Bale...")
+    try:
+        bale_bot = BaleBot()
+        for section in content_with_images:
+            text = section["text"]
+            images = section.get("images", [])
+
+            if images:
+                for image in images:
+                    # Validate image path
+                    image_path = os.path.abspath(image)
+                    if not os.path.exists(image_path):
+                        print(f"Error: Image not found at {image_path}")
+                        continue
+                    if not os.access(image_path, os.R_OK):
+                        print(f"Error: Image not readable at {image_path}")
+                        continue
+
+                    print(f"Sending text: {text} with image: {image_path}")
+                    await bale_bot.run(text, photo_path=image_path)
+                    text = ""  # Avoid duplicate captions
+            else:
+                print(f"Sending text-only: {text}")
+                await bale_bot.run(text)
+
+        print("All content and images sent successfully to Bale!")
+    except Exception as e:
+        print(f"Error sending messages to Bale: {e}")
+
+
 async def main():
     # Path to the Word document
     file_path = input("Enter the path to your Word document: ").strip()
@@ -17,51 +59,23 @@ async def main():
         print(f"Error extracting content: {e}")
         return
 
-    # Send to Telegram
-    print("Sending content and images to Telegram...")
-    try:
-        bot = TelegramBot()
-        for section in content_with_images:
-            await bot.send_message_with_images(section['text'], section['images'])
-        print("All content and images sent successfully to Telegram!")
-    except Exception as e:
-        print(f"Error sending messages to Telegram: {e}")
+    # Ask the user where to send the content
+    choice = input("Do you want to send the content to Telegram (T) or Bale (B)? ").strip().upper()
 
-    # Send content to Bale
-    print("Sending content and images to Bale...")
-    try:
-        bale_bot = BaleBot()
-        for section in content_with_images:
-            text = section["text"]
-            images = section.get("images", [])
+    destination = ""
+    if choice == 'T':
+        await send_to_telegram(content_with_images)
+        destination = "t.me/mavazenews"
+    elif choice == 'B':
+        await send_to_bale(content_with_images)
+        destination = "@mavazenews"
+    else:
+        print("Invalid choice. Please select 'T' for Telegram or 'B' for Bale.")
+        return
 
-            if images:
-                # Send text and all associated images
-                for image in images:
-                    # Validate image path
-                    image_path = os.path.abspath(image)
-                    if not os.path.exists(image_path):
-                        print(f"Error: Image not found at {image_path}")
-                        continue
-                    if not os.access(image_path, os.R_OK):
-                        print(f"Error: Image not readable at {image_path}")
-                        continue
-                    
-                    print(f"Sending text: {text} with image: {image_path}")
-                    await bale_bot.run(text, photo_path=image_path)
-
-                    # Clear the text after the first image to avoid duplicate captions
-                    text = ""
-            else:
-                # Send text-only message if no images are available
-                print(f"Sending text-only: {text}")
-                await bale_bot.run(text)
-
-        print("All content and images sent successfully to Bale!")
-    except Exception as e:
-        print(f"Error sending messages to Bale: {e}")
-
+    # Final success message
+    print(f"\nMessages have been successfully sent to {destination}.\n")
+    input("Press Enter to close the window...")  # Wait for user input to close
 
 if __name__ == "__main__":
     asyncio.run(main())
-    

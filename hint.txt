@@ -1,0 +1,4 @@
+Convert the Code to an .exe File:
+install:	pip install pyinstaller
+command:	pyinstaller --onefile --name extract_and_send your_script_nam.py
+			pyinstaller --onefile your_script_name.py

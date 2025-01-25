@@ -17,10 +17,10 @@ class TelegramBot:
         self.bot = Bot(token=self.token)
 
     def split_text(self, text, max_length):
-        """
-        Splits a given text into chunks that are within the maximum length limit.
-        Returns a list of text chunks.
-        """
+        
+        #Splits a given text into chunks.
+        #Returns a list of text chunks.
+        
         if len(text) <= max_length:
             return [text]
         return [text[i:i + max_length] for i in range(0, len(text), max_length)]

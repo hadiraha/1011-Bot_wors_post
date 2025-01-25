@@ -12,16 +12,15 @@ class DocxParser:
             raise
 
     def extract_headings_content_with_images(self):
-        """
-        Extracts text and images under each Heading 4 section.
-        Stops collecting if Heading 1, Heading 2, or Heading 3 is encountered.
-        Returns a list of dictionaries containing text and all image file paths.
-        """
+        
+        #It will extract text and images within each Heading 4 section.
+        #Includes the latest Heading 1 above each Heading 4.s
+        
         extracted_data = []
         current_content = None
         current_images = []
-        collecting = False  # Flag to indicate we are collecting content under a Heading 4
-        custom_heading_text = "خبر!"  # Custom fallback text for empty headings
+        collecting = False  # Flag to indicate collecting content
+        custom_heading_text = "خبر!"  # Custom titr
         images_output_dir = "extracted_images"
 
         # Ensure the output directory exists

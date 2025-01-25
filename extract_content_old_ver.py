@@ -12,10 +12,9 @@ class DocxParser:
             raise
 
     def extract_headings_content_with_images(self):
-        """
-        Extracts text and images under each Heading 4 section.
-        Returns a list of dictionaries containing text and all image file paths.
-        """
+        
+        #It will extract text and images within each Heading 4 section.
+        
         extracted_data = []
         current_content = None
         current_images = []

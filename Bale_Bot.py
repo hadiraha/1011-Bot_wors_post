@@ -9,9 +9,9 @@ load_dotenv()
 
 class BaleBot:
     def __init__(self):
-        """
-        Initialize the Bale bot with API credentials from the environment variables.
-        """
+        
+        #Initialize the Bale bot with API credentials from the environment variables.
+        
         self.token = os.getenv("BALE_API_TOKEN")
         self.chat_id = os.getenv("BALE_CHAT_ID")
         if not self.token or not self.chat_id:

@@ -14,11 +14,14 @@ class DocxParser:
     def extract_headings_content_with_images(self):
         """
         Extracts text and images under each Heading 4 section.
-        Returns a list of dictionaries containing text and all image file paths.
+        Includes the latest Heading 1 above each Heading 4 as a prefix.
+        Stops collecting if a new Heading 1, Heading 2, or Heading 3 is encountered.
+        Returns a list of dictionaries containing enriched text and all image file paths.
         """
         extracted_data = []
         current_content = None
         current_images = []
+        current_heading_1 = ""  # Track the latest Heading 1
         collecting = False  # Flag to indicate we are collecting content under a Heading 4
         custom_heading_text = "خبر!"  # Custom fallback text for empty headings
         images_output_dir = "extracted_images"
@@ -28,19 +31,35 @@ class DocxParser:
 
         image_counter = 0
         for para in self.document.paragraphs:
-            # Check for Heading 4 style
-            if para.style.name == 'Heading 4':
+            if para.style.name == 'Heading 1':
+                # Update the current Heading 1
+                current_heading_1 = para.text.strip() if para.text.strip() else ""
+
+                # If we are collecting and encounter a new Heading 1, save the current section
+                if collecting and (current_content or current_images):
+                    enriched_text = f"{current_heading_1}\n\n{current_content.strip() if current_content else custom_heading_text}"
+                    extracted_data.append({
+                        "text": enriched_text.strip(),
+                        "images": current_images
+                    })
+                collecting = False  # Stop collecting content
+                current_content = None
+                current_images = []
+
+            elif para.style.name == 'Heading 4':
                 # Save the current section before moving to the next
                 if collecting and (current_content or current_images):
+                    enriched_text = f"#{current_heading_1}\n\n{current_content.strip() if current_content else custom_heading_text}"
                     extracted_data.append({
-                        "text": current_content.strip() if current_content else custom_heading_text,
-                        "images": current_images  # Include all images
+                        "text": enriched_text.strip(),
+                        "images": current_images
                     })
 
                 # Start a new section
                 current_content = para.text.strip() if para.text.strip() else custom_heading_text
                 current_images = []
                 collecting = True
+
             elif collecting:
                 # Collect text content
                 if para.text.strip():
@@ -62,21 +81,10 @@ class DocxParser:
 
         # Add the last section
         if collecting and (current_content or current_images):
+            enriched_text = f"{current_heading_1}\n\n{current_content.strip() if current_content else custom_heading_text}"
             extracted_data.append({
-                "text": current_content.strip() if current_content else custom_heading_text,
+                "text": enriched_text.strip(),
                 "images": current_images
             })
 
         return extracted_data
-    
-# if __name__ == "__main__":
-#     file_path = input("Enter the path to your Word document: ").strip()
-#     try:
-#         parser = DocxParser(file_path)
-#         content_with_images = parser.extract_headings_content_with_images()
-#         print("Extracted Data:")
-#         for section in content_with_images:
-#             print(f"Text: {section['text']}")
-#             print(f"Images: {section['images']}")
-#     except Exception as e:
-#         print(f"An error occurred: {e}")

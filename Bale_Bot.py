@@ -8,10 +8,9 @@ import re
 load_dotenv()
 
 class BaleBot:
+    MAX_MESSAGE_LENGTH = 950  # Safer limit than 1024
+
     def __init__(self):
-        
-        #Initialize the Bale bot with API credentials from the environment variables.
-        
         self.token = os.getenv("BALE_API_TOKEN")
         self.chat_id = os.getenv("BALE_CHAT_ID")
         if not self.token or not self.chat_id:
@@ -19,42 +18,57 @@ class BaleBot:
         self.bot = Bot(self.token)
         self.client = Bot(self.token)
 
+        # Continuation messages
+        self.continuation_start = "🔄 این پیام ادامه‌ی پیام قبلی است..."
+        self.continuation_end = "⏳ ادامه در پیام بعدی..."
+
+    def split_text(self, text, max_length=MAX_MESSAGE_LENGTH):
+        """
+        Splits text into smaller chunks, ensuring words are not broken.
+        Adds continuation markers when messages are split.
+        """
+        if len(text) <= max_length:
+            return [text]
+
+        chunks = []
+        words = text.split(" ")
+        current_chunk = ""
+
+        for word in words:
+            if len(current_chunk) + len(word) + 1 > max_length:
+                chunks.append(current_chunk.strip() + f"\n\n{self.continuation_end}")
+                current_chunk = f"{self.continuation_start}\n\n{word}"  # Start new chunk
+            else:
+                current_chunk += " " + word
+
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+
+        return chunks
+
     async def run(self, text, photo_path=None):
+        """
+        Handles sending messages, ensuring long texts are split properly.
+        """
         async with self.client as bot:
             try:
                 print(f"Running with text: {text[:30]}...")
-                # Split text into chunks if it's too long
-                if len(text) > 1024:  # Adjust max length as per the platform's limits
-                    chunks = self.split_text(text)
-                    for chunk in chunks:
-                        print(f"Sending chunk of text: {chunk[:30]}...")
-                        if photo_path:
-                            # Send image with each chunk of text as the caption
-                            await self.send_photo_with_caption(bot, chunk, photo_path)
-                        else:
-                            # Send text-only chunk
-                            await self.send_text_message(bot, chunk)
-                        await asyncio.sleep(1)  # Add delay between chunks
-                else:
+                chunks = self.split_text(text)
+                
+                for chunk in chunks:
+                    print(f"Sending chunk: {chunk[:30]}...")
                     if photo_path:
-                        # Send the image with caption
-                        await self.send_photo_with_caption(bot, text, photo_path)
+                        await self.send_photo_with_caption(bot, chunk, photo_path)
                     else:
-                        # Send Text only
-                        await self.send_text_message(bot, text)
+                        await self.send_text_message(bot, chunk)
+                    await asyncio.sleep(1)  # Avoid sending too fast
 
             except Exception as e:
                 print(f"Error sending message: {e}")
 
-    def split_text(self, text, max_length=1024):
-        """
-        Split long text into smaller chunks to avoid message size limit.
-        """
-        return [text[i:i + max_length] for i in range(0, len(text), max_length)]
-
     async def send_text_message(self, bot, text):
         """
-        Sends a text message and handles flood control.
+        Sends a text message with flood control handling.
         """
         try:
             print(f"Sending text message: {text[:30]}...")
@@ -70,25 +84,33 @@ class BaleBot:
 
     async def send_photo_with_caption(self, bot, text, photo_path):
         """
-        Sends a photo with caption and handles flood control.
+        Sends a photo with a caption, handling long captions properly.
         """
         try:
             print(f"Sending photo with caption: {text[:30]}...")
-            photo_path = os.path.abspath(photo_path)  # Resolve to absolute path
+            photo_path = os.path.abspath(photo_path)
+
             if not os.path.exists(photo_path):
                 print(f"Error: File not found at {photo_path}")
                 return
             if not os.access(photo_path, os.R_OK):
                 print(f"Error: File not readable at {photo_path}")
                 return
+
             valid_extensions = (".jpg", ".jpeg", ".png", ".gif")
             if not photo_path.lower().endswith(valid_extensions):
                 print(f"Error: Invalid file extension for {photo_path}")
                 return
 
+            chunks = self.split_text(text, max_length=1024)  # Adjust caption length
+
             with open(photo_path, 'rb') as f:
                 photo = InputFile(f.read())
-                await bot.send_photo(chat_id=self.chat_id, photo=photo, caption=text)
+                await bot.send_photo(chat_id=self.chat_id, photo=photo, caption=chunks[0])
+
+            for chunk in chunks[1:]:
+                await self.send_text_message(bot, chunk)
+
         except Exception as e:
             if "Retry in" in str(e):
                 retry_after = self._parse_retry_time(str(e))
@@ -100,15 +122,14 @@ class BaleBot:
 
     def _parse_retry_time(self, error_str):
         """
-        Extract the retry time from the error string.
+        Extracts the retry time from the error string.
         """
         match = re.search(r"Retry in (\d+)", error_str)
         return int(match.group(1)) if match else 0
 
     async def send_batch_messages(self, messages, batch_size=5, delay=1):
         """
-        Sends messages in batches to avoid spamming too many messages.
-        Introduces a delay between messages and handles flood control.
+        Sends messages in batches to prevent spamming and handles flood control.
         """
         async with self.client as bot:
             for i in range(0, len(messages), batch_size):
@@ -117,6 +138,7 @@ class BaleBot:
                     text = message.get("text", "")
                     photo_path = message.get("photo")
                     print(f"Sending batch {i//batch_size + 1}/{len(messages)//batch_size + 1}...")
+
                     try:
                         await self.run(text, photo_path)
                         print(f"Message sent: {text[:30]}...")
@@ -129,37 +151,3 @@ class BaleBot:
                             await self.run(text, photo_path)
                         else:
                             print(f"Error sending message: {e}")
-
-    # async def send_message(self, text, photo_path=None):
-    #     """
-    #     Sends a message or a message with an image to the specified Bale chat or channel.
-    #     If photo_path is provided, sends the image along with the text as a caption.
-    #     """
-    #     async with self.client as bot:
-    #         try:
-    #             if photo_path:
-    #                 # Send the image with a caption
-    #                 with open(photo_path, "rb") as photo:
-    #                     await bot.send_photo(chat_id=self.chat_id, photo=photo, caption=text)
-    #             else:
-    #                 # Send text-only message
-    #                 await bot.send_message(chat_id=self.chat_id, text=text)
-    #         except Exception as e:
-    #             print(f"Error sending message: {e}")
-# Test
-# if __name__ == "__main__":
-#     async def main():
-#         bale_bot = BaleBot()
-#         test_image_path = r"extracted_images\image_1.png"  # Replace with a valid image path
-#         messages = [
-#             {"text": "Test Message 1 - Text Only"},
-#             {"text": "Test Message 2 - With Image", "photo": test_image_path if os.path.exists(test_image_path) else None},
-#             {"text": "Test Message 3 - Text Only"},
-#         ]
-#         try:
-#             await bale_bot.send_batch_messages(messages)
-#             print("All messages sent successfully to Bale.")
-#         except Exception as e:
-#             print(f"An error occurred while sending messages to Bale: {e}")
-
-#     asyncio.run(main())

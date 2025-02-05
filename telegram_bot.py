@@ -8,42 +8,60 @@ load_dotenv()
 
 class TelegramBot:
     MAX_CAPTION_LENGTH = 1024  # Telegram's caption character limit
+    MAX_MESSAGE_LENGTH = 4000  # Safer limit than 4096
 
-    def __init__(self):
+    def __init__(self, continuation_notation=None):
         self.token = os.getenv("TELEGRAM_API_TOKEN")
         self.chat_id = os.getenv("TELEGRAM_CHAT_ID")
         if not self.token or not self.chat_id:
             raise ValueError("TELEGRAM_API_TOKEN and TELEGRAM_CHAT_ID must be set in .env")
         self.bot = Bot(token=self.token)
 
+        # Default continuation messages if not provided
+       
+       
+        self.continuation_end = continuation_notation or "⏳ ادامه در پیام بعدی..."
+
     def split_text(self, text, max_length):
-        
-        #Splits a given text into chunks.
-        #Returns a list of text chunks.
-        
+        """
+        Splits a given text into chunks, ensuring that words are not broken.
+        Adds continuation messages where necessary.
+        """
         if len(text) <= max_length:
             return [text]
-        return [text[i:i + max_length] for i in range(0, len(text), max_length)]
+
+        chunks = []
+        words = text.split(" ")
+        current_chunk = ""
+
+        for word in words:
+            # If adding the next word exceeds the limit, finalize the current chunk
+            if len(current_chunk) + len(word) + 1 > max_length:
+                chunks.append(current_chunk.strip() + f"\n\n{self.continuation_end}")
+                current_chunk = f"{self.continuation_start}\n\n{word}"  # Start new chunk
+            else:
+                current_chunk += " " + word
+
+        # Add the last chunk
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+
+        return chunks
 
     async def send_message(self, text, photo_path=None):
         """
         Sends a message or a message with an image to the specified Telegram chat or channel.
-        If photo_path is provided, sends the image along with the text.
         Implements flood control handling.
         """
         try:
             if photo_path:
-                # Split caption if it exceeds the limit
                 chunks = self.split_text(text, self.MAX_CAPTION_LENGTH)
                 with open(photo_path, 'rb') as photo:
-                    # Send the first chunk as the caption
-                    await self._safe_send_photo(photo, chunks[0])
-                    # Send remaining chunks as separate messages
+                    await self._safe_send_photo(photo, chunks[0])  # First chunk with the image
                     for chunk in chunks[1:]:
                         await self._safe_send_message(chunk)
             else:
-                # Split and send long text messages
-                chunks = self.split_text(text, self.MAX_CAPTION_LENGTH)
+                chunks = self.split_text(text, self.MAX_MESSAGE_LENGTH)
                 for chunk in chunks:
                     await self._safe_send_message(chunk)
         except Exception as e:
@@ -51,25 +69,20 @@ class TelegramBot:
 
     async def send_message_with_images(self, text, images):
         """
-        Sends all associated images with their text as a caption to the Telegram chat.
+        Sends all associated images with their text as a caption to Telegram.
         If there are no images, only sends the text. Handles flood control.
         """
         if not images:
-            # If there are no images, just send the text
             await self.send_message(text)
         else:
             for image in images:
                 with open(image, "rb") as img_file:
                     try:
-                        # Split caption if necessary
                         chunks = self.split_text(text, self.MAX_CAPTION_LENGTH)
-                        # Send the first chunk as the caption
-                        await self._safe_send_photo(img_file, chunks[0])
-                        # Send remaining chunks as separate messages
+                        await self._safe_send_photo(img_file, chunks[0])  # Send first chunk as caption
                         for chunk in chunks[1:]:
                             await self._safe_send_message(chunk)
-                        # Clear the caption after the first image to avoid duplication
-                        text = ""
+                        text = ""  # Clear caption after first image
                     except Exception as e:
                         print(f"Error sending image with caption: {e}")
 
@@ -80,7 +93,7 @@ class TelegramBot:
         while True:
             try:
                 await self.bot.send_message(chat_id=self.chat_id, text=text)
-                break  # Exit the loop if successful
+                break  # Exit loop if successful
             except Exception as e:
                 if "Retry in" in str(e):
                     retry_after = self._parse_retry_time(str(e))
@@ -96,7 +109,7 @@ class TelegramBot:
         while True:
             try:
                 await self.bot.send_photo(chat_id=self.chat_id, photo=photo, caption=caption)
-                break  # Exit the loop if successful
+                break  # Exit loop if successful
             except Exception as e:
                 if "Retry in" in str(e):
                     retry_after = self._parse_retry_time(str(e))

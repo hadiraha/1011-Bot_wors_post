@@ -18,8 +18,8 @@ class DocxParser:
         extracted_data = []
         current_content = None
         current_images = []
-        collecting = False  # Flag to indicate we are collecting content under a Heading 4
-        custom_heading_text = "خبر!"  # Custom fallback text for empty headings
+        collecting = False  # Flag to indicate collecting content
+        custom_heading_text = "خبر!"  # Custom titr
         images_output_dir = "extracted_images"
 
         # Ensure the output directory exists

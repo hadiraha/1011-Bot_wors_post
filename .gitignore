@@ -2,3 +2,5 @@
 .png
 .jpeg
 extracted_images/
+/extracted_images
+*.png
